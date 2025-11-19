@@ -1,40 +1,42 @@
-# Product Importer (FastAPI + Redis + PostgreSQL)
+# Product Importer — FastAPI, PostgreSQL, Redis & SSE
 
-A lightweight product management system built with **FastAPI**, featuring:
-
-- CSV product upload
-- Background processing (uses FastAPI BackgroundTasks)
-- PostgreSQL storage (SKU, name, description, active status)
-- Filtering, searching & pagination
-- Webhooks for product change notifications
-- Live updates using SSE (Server Sent Events)
-- Minimal HTML UI for Products and Webhook Management
+A fully functional product ingestion system that supports large CSV processing (up to **500k records**), real-time progress updates, webhook triggers, and complete product CRUD, all accessible through a clean UI.
 
 
-## Live Deployment
+## Live Demo
 
-**Hosted on Render:**  
-https://product-importer-web-f0e9.onrender.com 
+ **https://product-importer-web-f0e9.onrender.com**
 
-
-## Features
-
-- CSV Upload
-- Async Progress (SSE)
-- Webhooks
-- Inline Product CRUD
-- Redis Pub/Sub Notifications
-- Fully containerized using Docker (for Local Development)
+Hosted on **Render** with PostgreSQL + Redis.
 
 
-## Tech Stack
+## Features in Detail
 
-- **FastAPI**
-- **PostgreSQL**
-- **SQLAlchemy**
-- **Redis**
-- **BackgroundTasks**
-- **SSE (EventSource)**
+### CSV Upload
+- Supports large CSV imports.
+- Uses streaming write (not memory loaded).
+- Automatic upsert based on SKU.
+
+### Live Progress Updates
+- Redis stores progress (`progress:{task_id}`).
+- SSE endpoint streams updates to UI.
+
+### Product Management
+- Add, edit, delete single items.
+- Bulk delete.
+- Case-insensitive SKU comparison.
+- Pagination + Keyword search.
+
+### Webhooks
+- User can:
+  - Register webhook URL
+  - Delete
+  - Test manually
+- Automatically triggered on:
+  - Import completion
+  - Product create/update/delete
+
+
 
 
 ![UI-1](images/img1.png)
