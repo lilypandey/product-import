@@ -19,12 +19,12 @@ https://product-importer-web-f0e9.onrender.com
 
 ## Features
 
-| CSV Upload
-| Async Progress (SSE)
-| Webhooks
-| Inline Product CRUD
-| Redis Pub/Sub Notifications
-| Fully containerized
+- CSV Upload
+- Async Progress (SSE)
+- Webhooks
+- Inline Product CRUD
+- Redis Pub/Sub Notifications
+- Fully containerized using Docker (for Local Development)
 
 
 ## Tech Stack
