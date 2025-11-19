@@ -2,7 +2,6 @@ fastapi
 uvicorn[standard]
 SQLAlchemy==1.4.49
 psycopg2-binary
-celery[redis]==5.5.3
 redis==4.6.0
 python-multipart
 sse-starlette==1.4.0
