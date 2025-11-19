@@ -35,8 +35,14 @@ def home():
     with open("frontend/upload.html", "r", encoding="utf-8") as f:
         return f.read()
 
+from fastapi import BackgroundTasks
+
 @app.post("/upload")
-async def upload_csv(file: UploadFile = File(...)):
+async def upload_csv(
+    file: UploadFile = File(...),
+    background: BackgroundTasks = None,
+    db: Session = Depends(get_db)
+):
     task_id = str(uuid.uuid4())
     filename = f"{task_id}_{file.filename}"
     filepath = os.path.join(UPLOAD_DIR, filename)
@@ -45,7 +51,8 @@ async def upload_csv(file: UploadFile = File(...)):
         while chunk := await file.read(1024 * 1024):
             f.write(chunk)
 
-    import_csv_task.delay(filepath, task_id)
+    background.add_task(import_csv_task, filepath, task_id, db, redis_client)
+
     return {"task_id": task_id}
 
 @app.get("/progress/{task_id}")

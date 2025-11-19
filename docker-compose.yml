@@ -18,21 +18,6 @@ services:
       redis:
         condition: service_started
 
-  worker:
-    build: .
-    container_name: product-importer-worker
-    command: celery -A backend.celery_app.celery_app worker --loglevel=info
-    volumes:
-      - ./:/usr/src/app
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-
   db:
     image: postgres:15
     container_name: product-importer-db

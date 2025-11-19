@@ -1,72 +1,54 @@
-import os
 import csv
+import os
 import redis
-from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
-
 from backend.database import SessionLocal
 from backend.models import Product
-from backend.celery_app import celery_app
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
+def import_csv_task(filepath: str, task_id: str, *args, **kwargs):
 
-@celery_app.task(bind=True)
-def import_csv_task(self, filepath, task_id):
-    session = SessionLocal()
+    from backend.main import notify_webhooks
+    db = SessionLocal()
 
-    with open(filepath, encoding="utf-8") as f:
-        total = sum(1 for _ in f) - 1
+    try:
+        with open(filepath, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
 
-    processed = 0
-    batch = []
+        total = len(rows)
+        processed = 0
 
-    with open(filepath, encoding="utf-8") as f:
-        reader = csv.DictReader(f)
+        for row in rows:
+            sku = row.get("sku") or ""
+            name = row.get("name") or ""
+            description = row.get("description") or ""
 
-        for row in reader:
-            processed += 1
+            product = db.query(Product).filter(Product.sku == sku).first()
 
-            sku = row.get("sku", "").strip()
-            name = row.get("name", "").strip()
-            desc = row.get("description", "").strip()
-
-            existing = session.query(Product).filter(
-                func.lower(Product.sku) == sku.lower()
-            ).first()
-
-            if existing:
-                existing.name = name or existing.name
-                existing.description = desc or existing.description
+            if product:
+                product.name = name
+                product.description = description
             else:
-                batch.append(Product(
-                    sku=sku,
-                    name=name,
-                    description=desc,
-                    active=True
-                ))
+                db.add(Product(sku=sku, name=name, description=description))
 
-            if len(batch) >= 500:
-                try:
-                    session.bulk_save_objects(batch)
-                    session.commit()
-                except IntegrityError:
-                    session.rollback()
-                batch = []
+            db.commit()
 
-            percent = max(1, int((processed / total) * 100))
-            redis_client.set(f"progress:{task_id}", percent)
-            redis_client.publish(f"progress_channel:{task_id}", percent)
+            processed += 1
+            progress = int((processed / total) * 100)
 
-    if batch:
-        try:
-            session.bulk_save_objects(batch)
-            session.commit()
-        except IntegrityError:
-            session.rollback()
+            redis_client.publish(f"progress_channel:{task_id}", progress)
+            redis_client.set(f"progress:{task_id}", progress)
 
-    redis_client.set(f"progress:{task_id}", 100)
-    redis_client.publish(f"progress_channel:{task_id}", 100)
+        notify_webhooks(
+            {
+                "event": "product.changed",
+                "action": "csv_import",
+                "count": processed,
+            },
+            db
+        )
 
-    return {"status": "completed"}
+    finally:
+        db.close()
