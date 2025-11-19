@@ -1,0 +1,418 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Products Management</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Arial;
+      background-color: #f7f9fc;
+      margin: 0;
+      padding: 40px 0;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 1100px;
+      background: white;
+      padding: 24px;
+      margin: auto;
+      border-radius: 12px;
+      box-shadow: 0px 6px 18px rgba(0,0,0,0.06);
+    }
+
+    h1 {
+      text-align: center;
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #5f6368;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+
+    th, td {
+      border-bottom: 1px solid #eee;
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    th {
+      background: #fafafa;
+      text-align: left;
+    }
+
+    input, select {
+      padding: 6px 10px;
+      margin-right: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    #btnNew {
+      background: #4caf50;
+      color: white;
+    }
+
+    #btnFilter {
+      background: #1976d2;
+      color: white;
+    }
+
+    #btnClear {
+      background: #9e9e9e;
+      color: white;
+    }
+
+    #btnBulkDelete {
+      background: #d32f2f;
+      color: white;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+      justify-content: center;
+    }
+
+    .pagination {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pagination button {
+      background: #1976d2;
+      color: white;
+    }
+
+    .editing {
+      background: #fffde7;
+    }
+
+    #pageInfo {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Products Management</h1>
+    <p class="subtitle">Live updates · Inline editing · Bulk actions · Filtering</p>
+
+    <div class="toolbar">
+      <input id="fSku" placeholder="Filter SKU" />
+      <input id="fName" placeholder="Filter Name" />
+      <input id="fDesc" placeholder="Filter Description" />
+      <select id="fActive">
+        <option value="">Status: Any</option>
+        <option value="true">Active</option>
+        <option value="false">Inactive</option>
+      </select>
+      <button id="btnFilter">Apply</button>
+      <button id="btnClear">Reset</button>
+      <button id="btnNew">+ Add Product</button>
+      <button id="btnBulkDelete" disabled>🗑 Delete Selected</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="chkAll"></th>
+          <th>ID</th>
+          <th>SKU</th>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Active</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tblBody"></tbody>
+    </table>
+
+    <div class="pagination">
+      <button id="prevPage">Prev</button>
+      <span id="pageInfo"></span>
+      <button id="nextPage">Next</button>
+    </div>
+  </div>
+
+  <script>
+    let page = 1;
+    const pageSize = 10;
+    let lastPage = 1;
+
+    const fSku = document.getElementById("fSku");
+    const fName = document.getElementById("fName");
+    const fDesc = document.getElementById("fDesc");
+    const fActive = document.getElementById("fActive");
+    const tblBody = document.getElementById("tblBody");
+    const pageInfo = document.getElementById("pageInfo");
+
+    function buildRow(p) {
+      const tr = document.createElement("tr");
+      tr.dataset.id = p.id;
+      tr.innerHTML = `
+        <td><input type="checkbox" class="rowCheck" data-id="${p.id}"></td>
+        <td>${p.id}</td>
+        <td>${escapeHtml(p.sku)}</td>
+        <td class="cell-name">${escapeHtml(p.name || "")}</td>
+        <td class="cell-desc">${escapeHtml(p.description || "")}</td>
+        <td class="cell-active">${p.active ? "Yes" : "No"}</td>
+        <td class="cell-actions">
+          <button class="btnEdit">Edit</button>
+          <button class="btnDelete">Delete</button>
+        </td>
+      `;
+      return tr;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, c => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+      }[c]));
+    }
+
+    async function loadProducts() {
+      const params = new URLSearchParams();
+      params.set("page", page);
+      params.set("page_size", pageSize);
+      if (fSku.value) params.set("sku", fSku.value);
+      if (fName.value) params.set("name", fName.value);
+      if (fDesc.value) params.set("description", fDesc.value);
+      if (fActive.value) params.set("active", fActive.value);
+
+      const res = await fetch("/products?" + params.toString());
+      const data = await res.json();
+
+      tblBody.innerHTML = "";
+      data.items.forEach(p => tblBody.appendChild(buildRow(p)));
+
+      pageInfo.innerText = `Page ${data.page} of ${data.pages || 1} (Total: ${data.total})`;
+      page = data.page;
+      lastPage = data.pages || 1;
+
+      wireRowButtons();
+      wireCheckboxEvents();
+      updateBulkUI();
+    }
+
+    function wireRowButtons() {
+      document.querySelectorAll(".btnEdit").forEach(btn => {
+        btn.onclick = () => enterEditMode(btn.closest("tr"));
+      });
+
+      document.querySelectorAll(".btnDelete").forEach(btn => {
+        btn.onclick = () => deleteRow(btn.closest("tr"));
+      });
+    }
+
+    function enterEditMode(tr) {
+      const id = tr.dataset.id;
+      if (!id) return;
+      tr.classList.add("editing");
+
+      const nameCell = tr.querySelector(".cell-name");
+      const descCell = tr.querySelector(".cell-desc");
+      const activeCell = tr.querySelector(".cell-active");
+      const actionsCell = tr.querySelector(".cell-actions");
+
+      const currentName = nameCell.textContent;
+      const currentDesc = descCell.textContent;
+      const currentActive = activeCell.textContent.trim() === "Yes";
+
+      nameCell.innerHTML = `<input class="edit-name" value="${currentName}"/>`;
+      descCell.innerHTML = `<input class="edit-desc" value="${currentDesc}"/>`;
+      activeCell.innerHTML = `
+        <select class="edit-active">
+          <option value="true" ${currentActive ? "selected" : ""}>Active</option>
+          <option value="false" ${!currentActive ? "selected" : ""}>Inactive</option>
+        </select>
+      `;
+
+      actionsCell.innerHTML = `
+        <button class="btnSave">✔</button>
+        <button class="btnCancel">✖</button>
+      `;
+
+      actionsCell.querySelector(".btnSave").onclick = () => saveEdit(tr);
+      actionsCell.querySelector(".btnCancel").onclick = () => cancelEdit();
+    }
+
+    async function saveEdit(tr) {
+      const id = tr.dataset.id;
+      const name = tr.querySelector(".edit-name").value;
+      const desc = tr.querySelector(".edit-desc").value;
+      const activeVal = tr.querySelector(".edit-active").value === "true";
+
+      const payload = {
+        name,
+        description: desc,
+        active: activeVal
+      };
+
+      const res = await fetch(`/products/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("Update failed: " + (err.detail || res.status));
+        return;
+      }
+
+      await loadProducts();
+    }
+
+    async function deleteRow(tr) {
+      const id = tr.dataset.id;
+      if (!confirm("Delete this product?")) return;
+
+      const res = await fetch(`/products/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("Delete failed: " + (err.detail || res.status));
+        return;
+      }
+
+      await loadProducts();
+    }
+
+    function cancelEdit() {
+      loadProducts();
+    }
+
+    async function createNew() {
+      const sku = prompt("Enter SKU:");
+      if (!sku) return;
+      const name = prompt("Enter Name:") || "";
+      const desc = prompt("Enter Description:") || "";
+
+      const payload = {
+        sku,
+        name,
+        description: desc,
+        active: true
+      };
+
+      const res = await fetch("/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert("Create failed: " + (err.detail || res.status));
+        return;
+      }
+
+      await loadProducts();
+    }
+
+    document.getElementById("btnFilter").onclick = () => { page = 1; loadProducts(); };
+    document.getElementById("btnClear").onclick = () => {
+      fSku.value = "";
+      fName.value = "";
+      fDesc.value = "";
+      fActive.value = "";
+      page = 1;
+      loadProducts();
+    };
+    document.getElementById("prevPage").onclick = () => {
+      if (page > 1) { page -= 1; loadProducts(); }
+    };
+    document.getElementById("nextPage").onclick = () => {
+      if (page < lastPage) { page += 1; loadProducts(); }
+    };
+    document.getElementById("btnNew").onclick = createNew;
+    let selectedIds = new Set();
+
+  function updateBulkUI() {
+    document.getElementById("btnBulkDelete").disabled = selectedIds.size === 0;
+  }
+
+  document.getElementById("btnBulkDelete").onclick = async () => {
+    if (!confirm(`Delete ${selectedIds.size} selected products?`)) return;
+
+    const res = await fetch("/products/bulk", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selectedIds) })
+    });
+
+    if (!res.ok) {
+      alert("Bulk delete failed.");
+      return;
+    }
+
+    selectedIds.clear();
+    updateBulkUI();
+    await loadProducts();
+  };
+
+  document.getElementById("chkAll").onclick = (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll(".rowCheck").forEach(cb => {
+      cb.checked = checked;
+      if (checked) selectedIds.add(Number(cb.dataset.id));
+      else selectedIds.delete(Number(cb.dataset.id));
+    });
+    updateBulkUI();
+  };
+
+  function wireCheckboxEvents() {
+    document.querySelectorAll(".rowCheck").forEach(cb => {
+      cb.onchange = () => {
+        const id = Number(cb.dataset.id);
+        if (cb.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateBulkUI();
+      };
+    });
+  }
+
+    function setupSSE() {
+      const es = new EventSource("/products/events");
+      es.onmessage = () => {
+        loadProducts();
+      };
+      es.onerror = (err) => {
+        console.error("products SSE error", err);
+      };
+    }
+
+    loadProducts();
+    setupSSE();
+  </script>
+</body>
+</html>

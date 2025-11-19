@@ -1,0 +1,176 @@
+<!doctype html>
+<html>
+<head>
+  <title>Webhook Manager</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f7fb;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding-top: 40px;
+    }
+
+    .container {
+      width: 650px;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0px 6px 18px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+      text-align: center;
+    }
+
+    .add-section {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      background: #2b72ff;
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #1f5bdd;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f1f3f8;
+      font-weight: 600;
+    }
+
+    .btn-danger {
+      background: #ff4d4d;
+    }
+
+    .btn-danger:hover {
+      background: #d93838;
+    }
+
+    .btn-test {
+      background: #00b674;
+    }
+
+    .btn-test:hover {
+      background: #00965f;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Webhook Manager</h1>
+
+    <div class="add-section">
+      <input id="whUrl" placeholder="Enter webhook URL..." />
+      <button id="btnAdd">Add</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Webhook URL</th>
+          <th style="width: 180px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr class="no-data"><td colspan="3">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+<script>
+async function loadWebhooks() {
+  const res = await fetch("/webhooks");
+  const data = await res.json();
+
+  if (!data.length) {
+    document.getElementById("tbody").innerHTML = `
+      <tr class="no-data"><td colspan="3">No webhooks added yet</td></tr>
+    `;
+    return;
+  }
+
+  document.getElementById("tbody").innerHTML = data.map(w => `
+    <tr>
+      <td>${w.id}</td>
+      <td>${w.url}</td>
+      <td>
+        <button class="btn-test" onclick="testWebhook(${w.id})">Test</button>
+        <button class="btn-danger" onclick="deleteWebhook(${w.id})">Delete</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function deleteWebhook(id) {
+  await fetch(`/webhooks/${id}`, { method: "DELETE" });
+  loadWebhooks();
+}
+
+async function testWebhook(id) {
+  const res = await fetch(`/webhooks/test/${id}`, { method: "POST" });
+  const msg = await res.json();
+  alert(`Response: ${msg.response_code ?? msg}`);
+}
+
+document.getElementById("btnAdd").onclick = async () => {
+  const url = document.getElementById("whUrl").value.trim();
+  if (!url) return alert("Webhook URL cannot be empty.");
+
+  await fetch("/webhooks", {
+    method: "POST",
+    headers: { "Content-Type":"application/json" },
+    body: JSON.stringify({ url, event: "product.changed" })
+  });
+
+  document.getElementById("whUrl").value = "";
+  loadWebhooks();
+};
+
+loadWebhooks();
+</script>
+</body>
+</html>

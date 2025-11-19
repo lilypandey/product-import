@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Product CSV Upload</title>
+  <style>
+    body { 
+      font-family: system-ui, -apple-system, Roboto, "Segoe UI", Arial; 
+      padding: 24px;
+      background: #f7f9fc;
+    }
+
+    .box { 
+      max-width: 700px; 
+      margin: 0 auto; 
+      background: white;
+      padding: 24px;
+      border-radius: 10px;
+      box-shadow: 0px 4px 16px rgba(0,0,0,0.07);
+    }
+
+    h1 { margin-top: 0; }
+
+    .progress-wrap { 
+      width: 100%; 
+      background:#eee; 
+      border-radius:8px; 
+      overflow:hidden; 
+      height: 22px; 
+      margin-top:10px; 
+    }
+
+    .progress-bar { 
+      height:100%; 
+      width:0%; 
+      background: linear-gradient(90deg,#4caf50,#2e7d32); 
+      transition: width 200ms ease; 
+    }
+
+    .meta { margin-top: 12px; color:#333; }
+
+    button { 
+      padding:8px 14px; 
+      border-radius:6px; 
+      border:0; 
+      cursor:pointer; 
+      font-size:14px;
+      transition: 0.2s;
+    }
+
+    #uploadBtn {
+      background:#1976d2; 
+      color:white; 
+      margin-top: 12px;
+    }
+
+    #uploadBtn:hover { opacity: 0.85; }
+
+    .nav-buttons {
+      text-align: center;
+      margin-top: 25px;
+    }
+
+    .nav-buttons button {
+      margin: 6px;
+      background: #455a64;
+      color: white;
+    }
+
+    .nav-buttons button:hover {
+      opacity: 0.85;
+    }
+
+    #doneMessage {
+      text-align:center;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Upload CSV File</h1>
+    <p>Upload a CSV of products (header: <code>sku,name,description</code>).</p>
+
+    <input id="fileInput" type="file" accept=".csv" />
+    <button id="uploadBtn">Upload</button>
+
+    <div class="meta" id="taskMeta" style="display:none;">
+      <div id="status">Waiting...</div>
+      <div class="progress-wrap">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <div style="margin-top:8px;"><small id="percentText">0%</small></div>
+    </div>
+
+    <div id="doneMessage" style="display:none; color:green;">
+      <strong>Upload & import complete!</strong>
+    </div>
+
+    <!-- Navigation Buttons (NEW) -->
+    <div class="nav-buttons">
+      <button onclick="location.href='/products/ui'">📦 Manage Products</button>
+      <button onclick="location.href='/webhooks/ui'">🔔 Manage Webhooks</button>
+    </div>
+  </div>
+
+  <script>
+    const uploadBtn = document.getElementById("uploadBtn");
+    const input = document.getElementById("fileInput");
+    const progressBar = document.getElementById("progressBar");
+    const status = document.getElementById("status");
+    const percentText = document.getElementById("percentText");
+    const taskMeta = document.getElementById("taskMeta");
+    const doneMessage = document.getElementById("doneMessage");
+
+    uploadBtn.onclick = async () => {
+      const file = input.files[0];
+      if (!file) return alert("Please choose a CSV file.");
+
+      progressBar.style.width = "0%";
+      percentText.innerText = "0%";
+      doneMessage.style.display = "none";
+      taskMeta.style.display = "block";
+
+      const fd = new FormData();
+      fd.append("file", file);
+
+      status.innerText = "Uploading…";
+      const res = await fetch("/upload", { method: "POST", body: fd });
+
+      if (!res.ok) return status.innerText = "Upload failed";
+
+      const { task_id } = await res.json();
+      status.innerText = "Processing…";
+
+      const sse = new EventSource(`/progress/${task_id}`);
+
+      sse.onmessage = (e) => {
+        const percent = parseInt(e.data) || 0;
+        progressBar.style.width = percent + "%";
+        percentText.innerText = percent + "%";
+
+        if (percent >= 100) {
+          status.innerText = "Completed";
+          doneMessage.style.display = "block";
+          sse.close();
+        }
+      };
+    };
+  </script>
+</body>
+</html>
