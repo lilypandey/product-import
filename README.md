@@ -19,7 +19,6 @@ https://product-importer-web-f0e9.onrender.com
 
 ## Features
 
-| Feature
 | CSV Upload
 | Async Progress (SSE)
 | Webhooks

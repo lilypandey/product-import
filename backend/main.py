@@ -4,10 +4,9 @@ import asyncio
 import redis
 from typing import List, Optional
 
-from fastapi import FastAPI, UploadFile, File, Depends, Query, HTTPException
+from fastapi import FastAPI, UploadFile, File, Depends, Query, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from sse_starlette.sse import EventSourceResponse
-from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -16,6 +15,8 @@ from backend.models import Product
 from backend.tasks import import_csv_task
 from backend.models import Webhook
 from backend.database import SessionLocal
+from backend.schemas import (ProductCreate, ProductUpdate, ProductOut, BulkDeleteRequest, WebhookCreate, WebhookOut)
+import requests
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
@@ -35,7 +36,6 @@ def home():
     with open("frontend/upload.html", "r", encoding="utf-8") as f:
         return f.read()
 
-from fastapi import BackgroundTasks
 
 @app.post("/upload")
 async def upload_csv(
@@ -85,25 +85,6 @@ async def progress_event_stream(task_id: str):
 
     return EventSourceResponse(event_generator())
 
-class ProductCreate(BaseModel):
-    sku: str
-    name: str
-    description: str
-    active: bool = True
-
-class ProductUpdate(BaseModel):
-    name: str
-    description: str
-    active: bool
-
-class ProductOut(BaseModel):
-    id: int
-    sku: str
-    name: Optional[str]
-    description: Optional[str]
-    active: bool
-
-    model_config = ConfigDict(from_attributes=True)
 
 @app.get("/products", response_model=dict)
 def list_products(
@@ -190,8 +171,6 @@ def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(g
     }, db)
     return p
 
-class BulkDeleteRequest(BaseModel):
-    ids: List[int]
 
 @app.delete("/products/bulk", response_model=dict)
 def bulk_delete(data: BulkDeleteRequest, db: Session = Depends(get_db)):
@@ -257,20 +236,6 @@ async def products_events():
 
     return EventSourceResponse(event_generator())
 
-class WebhookCreate(BaseModel):
-    url: str
-    event: str = "product.changed"
-
-
-class WebhookOut(BaseModel):
-    id: int
-    url: str
-    event: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-import requests
 
 @app.get("/webhooks", response_model=list[WebhookOut])
 def list_webhooks(db: Session = Depends(get_db)):
