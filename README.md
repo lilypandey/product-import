@@ -1,6 +1,6 @@
-# Product Importer — FastAPI, PostgreSQL, Redis & SSE
+# Product Importer - FastAPI, PostgreSQL, Redis & SSE
 
-A fully functional product ingestion system that supports large CSV processing (up to **500k records**), real-time progress updates, webhook triggers, and complete product CRUD, all accessible through a clean UI.
+A functional web application that supports large CSV processing (up to **500k records**), real-time progress updates, webhook triggers, and complete product CRUD, all accessible through a clean UI.
 
 
 ## Live Demo
