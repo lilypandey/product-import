@@ -236,10 +236,6 @@ def products_ui():
 
 @app.get("/products/events")
 async def products_events():
-    """
-    SSE endpoint that notifies the UI whenever products change.
-    Celery task + CRUD endpoints publish to Redis channel 'products_events'.
-    """
     loop = asyncio.get_event_loop()
     pubsub = redis_client.pubsub()
     pubsub.subscribe("products_events")
