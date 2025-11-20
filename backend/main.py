@@ -12,6 +12,3 @@ app.include_router(upload_router)
 app.include_router(products_router)
 app.include_router(webhooks_router)
 
-@app.get("/")
-def root():
-    return {"message": "Welcome to Product Importer API"}
