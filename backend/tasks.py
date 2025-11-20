@@ -3,13 +3,12 @@ import os
 import redis
 from backend.database import SessionLocal
 from backend.models import Product
+from backend.utils import notify_webhooks
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 def import_csv_task(filepath: str, task_id: str, *args, **kwargs):
-
-    from backend.main import notify_webhooks
     db = SessionLocal()
 
     try:
